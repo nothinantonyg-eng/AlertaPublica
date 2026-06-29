@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Alerta Pública — Monitor de Transparencia del Estado Peruano</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --red: #ff4444;
+      --orange: #ff8c00;
+      --yellow: #ffd700;
+      --green: #00d4aa;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(10,10,15,0.95);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--red), var(--orange));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--text), var(--red));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .badge {
+      margin-left: auto;
+      background: rgba(255,68,68,0.1);
+      border: 1px solid rgba(255,68,68,0.3);
+      color: var(--red);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+    }
+
+    main { padding: 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* Stats cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .stat-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-card .value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .stat-card .sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .stat-card.red .value { color: var(--red); }
+    .stat-card.orange .value { color: var(--orange); }
+    .stat-card.yellow .value { color: var(--yellow); }
+    .stat-card.green .value { color: var(--green); }
+
+    /* Filtros */
+    .filtros {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filtros label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    select, input[type="range"] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    select:focus { border-color: var(--red); }
+
+    .score-display {
+      font-size: 13px;
+      color: var(--orange);
+      font-weight: 600;
+      min-width: 60px;
+    }
+
+    /* Tabla */
+    .tabla-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    .tabla-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tabla-header h2 { font-size: 16px; font-weight: 600; }
+    .tabla-header span { font-size: 13px; color: var(--muted); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 12px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(30,30,46,0.5);
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr:hover td { background: rgba(255,68,68,0.03); }
+
+    .score-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .score-alto {
+      background: rgba(255,68,68,0.15);
+      color: var(--red);
+      border: 1px solid rgba(255,68,68,0.3);
+    }
+
+    .score-medio {
+      background: rgba(255,140,0,0.15);
+      color: var(--orange);
+      border: 1px solid rgba(255,140,0,0.3);
+    }
+
+    .score-bajo {
+      background: rgba(255,215,0,0.15);
+      color: var(--yellow);
+      border: 1px solid rgba(255,215,0,0.3);
+    }
+
+    .entidad-text {
+      max-width: 250px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .proveedor-text {
+      max-width: 200px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btn-explicar {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-explicar:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    /* Charts */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .chart-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      max-width: 560px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--red);
+    }
+
+    .modal-info {
+      background: rgba(255,68,68,0.05);
+      border: 1px solid rgba(255,68,68,0.15);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .modal-info .row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .modal-info .row span:first-child { color: var(--muted); }
+
+    .explicacion-text {
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    .loading-text {
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn-cerrar {
+      margin-top: 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 8px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .btn-cerrar:hover { border-color: var(--text); color: var(--text); }
+
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .loading-overlay.active { display: flex; }
+    .loading-overlay p { color: var(--muted); font-size: 14px; }
+
+    @media (max-width: 768px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading-overlay active" id="loading-overlay">
+  <div class="spinner" style="width:40px;height:40px;border-width:3px"></div>
+  <p>Cargando datos del SEACE...</p>
+</div>
+
+<header>
+  <div class="logo">🔍</div>
+  <div>
+    <h1>Alerta Pública</h1>
+    <p>Monitor de Transparencia del Estado Peruano</p>
+  </div>
+  <div class="badge" id="badge-alertas">Cargando...</div>
+</header>
+
+<main>
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card red">
+      <div class="label">Total Alertas</div>
+      <div class="value" id="stat-alertas">—</div>
+      <div class="sub">contratos sospechosos</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="label">Contratos Analizados</div>
+      <div class="value" id="stat-total">—</div>
+      <div class="sub">del SEACE 2026</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="label">Monto Total Monitoreado</div>
+      <div class="value" id="stat-monto">—</div>
+      <div class="sub">en soles</div>
+    </div>
+    <div class="stat-card green">
+      <div class="label">% Sospechoso</div>
+      <div class="value" id="stat-pct">—</div>
+      <div class="sub">del total de contratos</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>🗺️ Alertas por Departamento</h3>
+      <canvas id="chart-deptos" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>📊 Distribución de Score de Riesgo</h3>
+      <canvas id="chart-scores" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filtros">
+    <label>Departamento:</label>
+    <select id="filtro-depto" onchange="cargarAlertas()">
+      <option value="">Todos</option>
+    </select>
+    <label>Score mínimo:</label>
+    <input type="range" id="filtro-score" min="40" max="70" value="40" 
+           oninput="actualizarScore(this.value)">
+    <span class="score-display" id="score-display">≥ 40</span>
+  </div>
+
+  <!-- Tabla -->
+  <div class="tabla-container">
+    <div class="tabla-header">
+      <h2>⚠️ Contratos con Alertas</h2>
+      <span id="tabla-count">Cargando...</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Riesgo</th>
+            <th>Entidad</th>
+            <th>Proveedor</th>
+            <th>Monto</th>
+            <th>Días</th>
+            <th>Departamento</th>
+            <th>Análisis IA</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-body">
+          <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:40px">
+            Cargando alertas...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Modal explicación -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>🔎 Análisis de Alerta</h3>
+    <div class="modal-info" id="modal-info"></div>
+    <div id="modal-explicacion">
+      <div class="loading-text">
+        <div class="spinner"></div>
+        Analizando con IA...
+      </div>
+    </div>
+    <button class="btn-cerrar" onclick="cerrarModal()">Cerrar</button>
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:8000';
+  let alertasData = [];
+  let chartDeptos = null;
+  let chartScores = null;
+
+  async function init() {
+    await Promise.all([
+      cargarStats(),
+      cargarDepartamentos(),
+      cargarAlertas()
+    ]);
+    document.getElementById('loading-overlay').classList.remove('active');
+  }
+
+  async function cargarStats() {
+    const res = await fetch(`${API}/api/stats`);
+    const d = await res.json();
+
+    document.getElementById('stat-alertas').textContent = 
+      d.total_alertas.toLocaleString();
+    document.getElementById('stat-total').textContent = 
+      d.total_contratos.toLocaleString();
+    document.getElementById('stat-monto').textContent = 
+      'S/ ' + formatMonto(d.monto_total);
+    document.getElementById('stat-pct').textContent = 
+      d.porcentaje_sospechoso + '%';
+    document.getElementById('badge-alertas').textContent = 
+      `⚠️ ${d.total_alertas} alertas activas`;
+  }
+
+  async function cargarDepartamentos() {
+    const res = await fetch(`${API}/api/departamentos`);
+    const deptos = await res.json();
+
+    // Llenar select
+    const select = document.getElementById('filtro-depto');
+    deptos.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.entidad_departamento;
+      opt.textContent = `${d.entidad_departamento} (${d.alertas})`;
+      select.appendChild(opt);
+    });
+
+    // Chart departamentos
+    const top10 = deptos.slice(0, 10);
+    const ctx = document.getElementById('chart-deptos').getContext('2d');
+    if (chartDeptos) chartDeptos.destroy();
+    chartDeptos = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: top10.map(d => d.entidad_departamento),
+        datasets: [{
+          label: 'Alertas',
+          data: top10.map(d => d.alertas),
+          backgroundColor: 'rgba(255,68,68,0.6)',
+          borderColor: 'rgba(255,68,68,1)',
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { 
+            ticks: { color: '#6b6b80', font: { size: 10 } },
+            grid: { color: '#1e1e2e' }
+          },
+          y: { 
+            ticks: { color: '#6b6b80' },
+            grid: { color: '#1e1e2e' }
+          }
+        }
+      }
+    });
+  }
+
+  async function cargarAlertas() {
+    const depto = document.getElementById('filtro-depto').value;
+    const score = document.getElementById('filtro-score').value;
+
+    let url = `${API}/api/alertas?limite=100&score_minimo=${score}`;
+    if (depto) url += `&departamento=${encodeURIComponent(depto)}`;
+
+    const res = await fetch(url);
+    alertasData = await res.json();
+
+    renderTabla(alertasData);
+    renderChartScores(alertasData);
+  }
+
+  function renderTabla(data) {
+    const tbody = document.getElementById('tabla-body');
+    document.getElementById('tabla-count').textContent = 
+      `${data.length} contratos`;
+
+    if (data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" 
+        style="text-align:center;color:var(--muted);padding:40px">
+        No hay alertas con estos filtros</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map((a, i) => `
+      <tr>
+        <td><span class="score-badge ${scoreClass(a.score_riesgo)}">
+          ${a.score_riesgo}
+        </span></td>
+        <td><div class="entidad-text">${a.entidad || '—'}</div></td>
+        <td><div class="proveedor-text">${a.proveedor || '—'}</div></td>
+        <td style="white-space:nowrap;font-weight:600">
+          S/ ${formatMonto(a.monto_adjudicado)}
+        </td>
+        <td style="color:${a.dias_proceso <= 5 ? 'var(--red)' : 'var(--text)'}">
+          ${a.dias_proceso != null ? a.dias_proceso + 'd' : '—'}
+        </td>
+        <td style="font-size:12px;color:var(--muted)">
+          ${a.entidad_departamento || '—'}
+        </td>
+        <td>
+          <button class="btn-explicar" onclick="explicarAlerta(${i})">
+            🤖 Analizar
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderChartScores(data) {
+    const buckets = { '40-49': 0, '50-59': 0, '60-69': 0, '70+': 0 };
+    data.forEach(a => {
+      const s = a.score_riesgo;
+      if (s >= 70) buckets['70+']++;
+      else if (s >= 60) buckets['60-69']++;
+      else if (s >= 50) buckets['50-59']++;
+      else buckets['40-49']++;
+    });
+
+    const ctx = document.getElementById('chart-scores').getContext('2d');
+    if (chartScores) chartScores.destroy();
+    chartScores = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(buckets),
+        datasets: [{
+          data: Object.values(buckets),
+          backgroundColor: [
+            'rgba(255,215,0,0.7)',
+            'rgba(255,140,0,0.7)',
+            'rgba(255,68,68,0.7)',
+            'rgba(139,0,0,0.7)'
+          ],
+          borderColor: '#1e1e2e',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#6b6b80', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  async function explicarAlerta(index) {
+    const alerta = alertasData[index];
+    const modal = document.getElementById('modal');
+    const modalInfo = document.getElementById('modal-info');
+    const modalExp = document.getElementById('modal-explicacion');
+
+    modalInfo.innerHTML = `
+      <div class="row">
+        <span>Entidad</span>
+        <span style="text-align:right;max-width:300px">${alerta.entidad}</span>
+      </div>
+      <div class="row">
+        <span>Proveedor</span>
+        <span style="color:var(--orange)">${alerta.proveedor}</span>
+      </div>
+      <div class="row">
+        <span>Monto adjudicado</span>
+        <span style="font-weight:700">S/ ${formatMonto(alerta.monto_adjudicado)}</span>
+      </div>
+      <div class="row">
+        <span>Score de riesgo</span>
+        <span class="score-badge ${scoreClass(alerta.score_riesgo)}">${alerta.score_riesgo}</span>
+      </div>
+      <div class="row">
+        <span>Días del proceso</span>
+        <span style="color:${alerta.dias_proceso<=5?'var(--red)':'var(--text)'}">
+          ${alerta.dias_proceso != null ? alerta.dias_proceso + ' días' : 'No disponible'}
+        </span>
+      </div>
+    `;
+
+    modalExp.innerHTML = `
+      <div class="loading-text">
+        <div class="spinner"></div>
+        Analizando con IA...
+      </div>`;
+
+    modal.classList.add('active');
+
+    try {
+      const res = await fetch(`${API}/api/explicar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(alerta)
+      });
+      const data = await res.json();
+      modalExp.innerHTML = `
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px">
+          Análisis generado por IA:
+        </p>
+        <div class="explicacion-text">${data.explicacion}</div>`;
+    } catch(e) {
+      modalExp.innerHTML = `<p style="color:var(--red)">Error al generar análisis.</p>`;
+    }
+  }
+
+  function cerrarModal() {
+    document.getElementById('modal').classList.remove('active');
+  }
+
+  function actualizarScore(val) {
+    document.getElementById('score-display').textContent = `≥ ${val}`;
+    cargarAlertas();
+  }
+
+  function scoreClass(s) {
+    if (s >= 60) return 'score-alto';
+    if (s >= 50) return 'score-medio';
+    return 'score-bajo';
+  }
+
+  function formatMonto(n) {
+    if (!n) return '0';
+    if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n/1e3).toFixed(0) + 'K';
+    return n.toFixed(0);
+  }
+
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) cerrarModal();
+  });
+
+  init();
+</script>
+</body>
+</html>
