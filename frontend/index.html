@@ -430,6 +430,10 @@
       <h3>📊 Distribución de Score de Riesgo</h3>
       <canvas id="chart-scores" height="200"></canvas>
     </div>
+    <div class="chart-card" style="grid-column: 1 / -1">
+      <h3>📈 Evolución Anual de Alertas (2024-2026)</h3>
+      <canvas id="chart-tendencia" height="80"></canvas>
+    </div>
   </div>
 
   <!-- Filtros -->
@@ -498,7 +502,8 @@
     await Promise.all([
       cargarStats(),
       cargarDepartamentos(),
-      cargarAlertas()
+      cargarAlertas(),
+      cargarTendencia()
     ]);
     document.getElementById('loading-overlay').classList.remove('active');
   }
@@ -517,6 +522,58 @@
       d.porcentaje_sospechoso + '%';
     document.getElementById('badge-alertas').textContent = 
       `⚠️ ${d.total_alertas} alertas activas`;
+  }
+
+  async function cargarTendencia() {
+    const res = await fetch(`${API}/api/tendencia`);
+    const data = await res.json();
+
+    const ctx = document.getElementById('chart-tendencia').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.map(d => d.año),
+        datasets: [
+          {
+            label: 'Total Contratos',
+            data: data.map(d => d.total_contratos),
+            borderColor: 'rgba(0,212,170,1)',
+            backgroundColor: 'rgba(0,212,170,0.1)',
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'y'
+          },
+           {
+            label: 'Alertas',
+            data: data.map(d => d.alertas),
+            borderColor: 'rgba(255,68,68,1)',
+            backgroundColor: 'rgba(255,68,68,0.1)',
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'y'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: '#6b6b80', font: { size: 12 } }
+          }
+        },
+        scales: {
+          y: {
+            ticks: { color: '#6b6b80' },
+            grid: { color: '#1e1e2e' }
+          },
+          x: {
+            ticks: { color: '#6b6b80' },
+            grid: { color: '#1e1e2e' }
+          }
+        }
+      }
+    });
   }
 
   async function cargarDepartamentos() {

@@ -114,15 +114,32 @@ Explica qué patrones son sospechosos y por qué esto podría indicar irregulari
     )
     return {"explicacion": response.choices[0].message.content}
 
-@app.get("/api/top-riesgo")
-def top_riesgo(limite: int = 10):
+@app.get("/api/tendencia")
+def tendencia_anual():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT año,
+               COUNT(*) as total_contratos,
+               SUM(CASE WHEN score_riesgo >= 40 THEN 1 ELSE 0 END) as alertas,
+               SUM(monto_adjudicado) as monto_total,
+               AVG(monto_adjudicado) as monto_promedio
+        FROM contratos_scored
+        GROUP BY año
+        ORDER BY año
+    """).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+@app.get("/api/alertas/año/{year}")
+def alertas_por_año(year: str):
     conn = get_db()
     rows = conn.execute("""
         SELECT entidad, proveedor, monto_adjudicado,
-               score_riesgo, dias_proceso, entidad_departamento
+               score_riesgo, dias_proceso, entidad_departamento, año
         FROM alertas
+        WHERE año = ?
         ORDER BY score_riesgo DESC, monto_adjudicado DESC
-        LIMIT ?
-    """, [limite]).fetchall()
+        LIMIT 100
+    """, [year]).fetchall()
     conn.close()
     return [dict(r) for r in rows]
